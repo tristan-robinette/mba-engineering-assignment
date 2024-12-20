@@ -1,0 +1,9 @@
+services:
+  django:
+    build:
+      context: backend
+    volumes:
+      - ./backend/app:/code
+    restart: always
+    ports:
+      - 8000:8000
