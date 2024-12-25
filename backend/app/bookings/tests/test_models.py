@@ -2,9 +2,13 @@ from datetime import date
 
 from companies.models import Company
 from bookings.models import Message, Booking
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from ..models import Booking, Product, Trip
+
+
+YEAR_IN_FUTURE = 3000
 
 
 class TripModelTest(TestCase):
@@ -19,10 +23,21 @@ class TripModelTest(TestCase):
         # Create a Trip instance
         self.trip = Trip.objects.create(
             product=product,
-            start_date=date(2024, 1, 10),
-            end_date=date(2024, 1, 20),
+            start_date=date(YEAR_IN_FUTURE, 1, 10),
+            end_date=date(YEAR_IN_FUTURE, 1, 20),
             max_pax=10,
         )
+
+    def test_trip_start_date_in_the_past(self):
+        past_date = date.today().replace(day=1, month=1, year=2000)
+        self.trip.start_date = past_date
+        with self.assertRaises(ValidationError) as context:
+            self.trip.save()
+            self.assertIn('start_date', context.exception.error_dict)
+            self.assertEqual(
+                context.exception.error_dict['start_date'][0].message,
+                "The start date cannot be in the past."
+            )
 
     def test_booked_pax_no_bookings(self):
         # With no bookings, booked_pax should be 0
@@ -85,8 +100,8 @@ class BookingModelTests(TestCase):
 
         self.trip = Trip.objects.create(
             product=product,
-            start_date=date(2024, 1, 10),
-            end_date=date(2024, 1, 20),
+            start_date=date(YEAR_IN_FUTURE, 1, 1),
+            end_date=date(YEAR_IN_FUTURE, 1, 20),
             max_pax=10,
         )
 

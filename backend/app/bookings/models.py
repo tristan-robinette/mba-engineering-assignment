@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from datetime import date
 
 
 class Product(models.Model):
@@ -42,6 +44,17 @@ class Trip(models.Model):
     @property
     def is_full(self):
         return self.booked_pax >= self.max_pax
+
+    def clean(self):
+        if self.start_date < date.today():
+            raise ValidationError({'start_date': "The start date cannot be in the past."})
+
+    def save(self, *args, **kwargs):
+        # Django REST does not call 'full_clean' in ModelSerializers
+        # so adding here but usually this would go in a service
+        # layer.
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Booking(models.Model):
