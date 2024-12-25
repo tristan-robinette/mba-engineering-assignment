@@ -28,33 +28,46 @@ class TripModelTest(TestCase):
             max_pax=10,
         )
 
+    def test_trip_max_max_has_capacity(self):
+        self.trip.max_pax = 0
+        with self.assertRaises(ValidationError) as context:
+            self.trip.save()
+
+        self.assertIn('max_pax', context.exception.error_dict)
+
+        self.assertEqual(
+            context.exception.error_dict['max_pax'][0].message,
+            "max_pax should have a value of at least 1."
+        )
+
     def test_trip_start_date_in_the_past(self):
         past_date = date.today().replace(day=1, month=1, year=2000)
         self.trip.start_date = past_date
         with self.assertRaises(ValidationError) as context:
             self.trip.save()
-            self.assertIn('start_date', context.exception.error_dict)
-            self.assertEqual(
-                context.exception.error_dict['start_date'][0].message,
-                "The start date cannot be in the past."
-            )
+        self.assertIn('start_date', context.exception.error_dict)
+        self.assertEqual(
+            context.exception.error_dict['start_date'][0].message,
+            "The start date cannot be in the past."
+        )
 
     def test_trip_start_date_later_than_end_date(self):
-        self.trip.start_date = date.today().replace(day=10, month=12, year=2024)
-        self.trip.end_date = date.today().replace(day=5, month=12, year=2024)
+        self.trip.start_date = date.today().replace(day=10, month=12, year=YEAR_IN_FUTURE)
+        self.trip.end_date = date.today().replace(day=5, month=12, year=YEAR_IN_FUTURE)
 
         with self.assertRaises(ValidationError) as context:
             self.trip.save()
-            self.assertIn('start_date', context.exception.error_dict)
-            self.assertIn('end_date', context.exception.error_dict)
-            self.assertEqual(
-                context.exception.error_dict['start_date'][0].message,
-                "The start date cannot be later than the end date."
-            )
-            self.assertEqual(
-                context.exception.error_dict['end_date'][0].message,
-                "The end date cannot be earlier than the start date."
-            )
+
+        self.assertIn('start_date', context.exception.error_dict)
+        self.assertIn('end_date', context.exception.error_dict)
+        self.assertEqual(
+            context.exception.error_dict['start_date'][0].message,
+            "The start date cannot be later than the end date."
+        )
+        self.assertEqual(
+            context.exception.error_dict['end_date'][0].message,
+            "The end date cannot be earlier than the start date."
+        )
 
     def test_booked_pax_no_bookings(self):
         # With no bookings, booked_pax should be 0

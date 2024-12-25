@@ -3,6 +3,9 @@ from django.db import models
 from datetime import date
 
 
+MININUM_MAX_PAX = 1
+
+
 class Product(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
@@ -53,6 +56,8 @@ class Trip(models.Model):
                 'start_date': "The start date cannot be later than the end date.",
                 'end_date': "The end date cannot be earlier than the start date."
             })
+        if self.max_pax < MININUM_MAX_PAX:
+            raise ValidationError({'max_pax': 'max_pax should have a value of at least 1.'})
 
     def save(self, *args, **kwargs):
         # Django REST does not call 'full_clean' in ModelSerializers
