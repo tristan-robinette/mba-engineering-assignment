@@ -48,6 +48,11 @@ class Trip(models.Model):
     def clean(self):
         if self.start_date < date.today():
             raise ValidationError({'start_date': "The start date cannot be in the past."})
+        if self.start_date > self.end_date:
+            raise ValidationError({
+                'start_date': "The start date cannot be later than the end date.",
+                'end_date': "The end date cannot be earlier than the start date."
+            })
 
     def save(self, *args, **kwargs):
         # Django REST does not call 'full_clean' in ModelSerializers
