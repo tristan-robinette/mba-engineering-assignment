@@ -1,6 +1,7 @@
 from datetime import date
 
 from companies.models import Company
+from bookings.models import Message, Booking
 from django.test import TestCase
 
 from ..models import Booking, Product, Trip
@@ -70,3 +71,61 @@ class TripModelTest(TestCase):
         # Bookings are below max_pax
         Booking.objects.create(trip=self.trip, pax=5, status="APPROVED")
         self.assertFalse(self.trip.is_full)
+
+
+class BookingModelTests(TestCase):
+    def setUp(self):
+        company = Company.objects.create(name="Test Company")
+        product = Product.objects.create(
+            name="Test Product",
+            description="Test Product Description",
+            price=100.00,
+            company=company,
+        )
+
+        self.trip = Trip.objects.create(
+            product=product,
+            start_date=date(2024, 1, 10),
+            end_date=date(2024, 1, 20),
+            max_pax=10,
+        )
+
+        # Create a booking
+        self.booking = Booking.objects.create(trip=self.trip, pax=2, status="PENDING")
+
+        # Create messages with threading
+        self.message1 = Message.objects.create(
+            booking=self.booking, content="Parent message 1", sender="User1"
+        )
+        self.reply1 = Message.objects.create(
+            booking=self.booking, content="Reply to message 1", sender="User2", parent_message=self.message1
+        )
+        self.reply2 = Message.objects.create(
+            booking=self.booking, content="Reply to reply 1", sender="User3", parent_message=self.reply1
+        )
+        self.message2 = Message.objects.create(
+            booking=self.booking, content="Parent message 2", sender="User1"
+        )
+
+    def test_booking_email_thread_structure(self):
+        booking = Booking.objects.prefetch_related('messages__replies__replies__replies').get(id=self.booking.id)
+        email_thread = booking.messages.all()
+
+        self.assertEqual(email_thread.count(), 4)
+
+        message1 = email_thread.first()
+        self.assertEqual(message1.content, "Parent message 1")
+        self.assertEqual(message1.replies.count(), 1)
+
+        reply1 = message1.replies.first()
+        self.assertEqual(reply1.content, "Reply to message 1")
+        self.assertEqual(reply1.replies.count(), 1)
+
+        reply2 = reply1.replies.first()
+        self.assertEqual(reply2.content, "Reply to reply 1")
+        self.assertEqual(reply2.replies.count(), 0)
+
+    def test_empty_email_thread_for_booking_without_messages(self):
+        empty_booking = Booking.objects.create(trip=self.trip, pax=3, status="PENDING")
+        email_thread = empty_booking.messages.all()
+        self.assertEqual(email_thread.count(), 0)
