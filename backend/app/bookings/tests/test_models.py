@@ -75,14 +75,14 @@ class TripModelTest(TestCase):
 
     def test_booked_pax_with_approved_bookings(self):
         # Add approved bookings
-        Booking.objects.create(trip=self.trip, pax=3, status="APPROVED")
-        Booking.objects.create(trip=self.trip, pax=2, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=3).approve_booking()
+        Booking.objects.create(trip=self.trip, pax=2).approve_booking()
         # Total should be 5 (3 + 2)
         self.assertEqual(self.trip.booked_pax, 5)
 
     def test_booked_pax_with_mixed_status_bookings(self):
         # Add mixed-status bookings
-        Booking.objects.create(trip=self.trip, pax=4, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=4).approve_booking()
         Booking.objects.create(trip=self.trip, pax=3, status="PENDING")
         Booking.objects.create(trip=self.trip, pax=2, status="REJECTED")
         # Only the approved one should count
@@ -94,27 +94,27 @@ class TripModelTest(TestCase):
 
     def test_available_pax_with_approved_bookings(self):
         # Add approved bookings
-        Booking.objects.create(trip=self.trip, pax=6, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=6).approve_booking()
         self.assertEqual(self.trip.available_pax, 4)  # max_pax - booked_pax
 
     def test_has_space_true(self):
         # Add a booking to ensure available_pax is > 0
-        Booking.objects.create(trip=self.trip, pax=8, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=8).approve_booking()
         self.assertTrue(self.trip.has_space)
 
     def test_has_space_false_when_full(self):
         # Fill the trip to capacity
-        Booking.objects.create(trip=self.trip, pax=10, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=10).approve_booking()
         self.assertFalse(self.trip.has_space)
 
     def test_is_full_true_when_exact_capacity(self):
         # Fill trip to exact capacity
-        Booking.objects.create(trip=self.trip, pax=10, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=10).approve_booking()
         self.assertTrue(self.trip.is_full)
 
     def test_is_full_false_when_not_full(self):
         # Bookings are below max_pax
-        Booking.objects.create(trip=self.trip, pax=5, status="APPROVED")
+        Booking.objects.create(trip=self.trip, pax=5).approve_booking()
         self.assertFalse(self.trip.is_full)
 
 
@@ -174,3 +174,14 @@ class BookingModelTests(TestCase):
         empty_booking = Booking.objects.create(trip=self.trip, pax=3, status="PENDING")
         email_thread = empty_booking.messages.all()
         self.assertEqual(email_thread.count(), 0)
+
+    def test_booking_is_not_approved_by_default(self):
+        with self.assertRaises(ValidationError) as context:
+            Booking.objects.create(trip=self.trip, pax=2, status="APPROVED")
+
+        self.assertIn('status', context.exception.error_dict)
+
+        self.assertEqual(
+            context.exception.error_dict['status'][0].message,
+            "Booking status should be 'PENDING' or 'REJECTED' upon creation."
+        )

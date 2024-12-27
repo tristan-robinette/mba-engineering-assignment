@@ -82,6 +82,23 @@ class Booking(models.Model):
         default="PENDING",
     )
 
+    def approve_booking(self):
+        if self.status != "APPROVED":
+            self.status = "APPROVED"
+            self.save(update_fields=["status"])
+        return self
+
+    def clean(self):
+        if not self.pk and self.status == "APPROVED":
+            raise ValidationError({'status': "Booking status should be 'PENDING' or 'REJECTED' upon creation."})
+
+    def save(self, *args, **kwargs):
+        # Django REST does not call 'full_clean' in ModelSerializers
+        # so adding here but usually this would go in a service
+        # layer.
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ["created_at"]
 
