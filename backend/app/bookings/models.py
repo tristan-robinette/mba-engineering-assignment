@@ -34,6 +34,10 @@ class Trip(models.Model):
         return self.start_date <= date.today()
 
     @property
+    def has_ended(self):
+        return self.end_date < date.today()
+
+    @property
     def booked_pax(self):
         return sum(
             booking.pax
@@ -106,6 +110,8 @@ class Booking(models.Model):
         return self
 
     def clean(self):
+        if self.trip.has_ended:
+            raise ValidationError({'trip': "This trip has already ended."})
         if not self.pk and self.status == "APPROVED":
             raise ValidationError({'status': "Booking status should be 'PENDING' or 'REJECTED' upon creation."})
 

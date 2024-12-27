@@ -133,7 +133,7 @@ class TripModelTest(TestCase):
             Booking.objects.create(trip=self.trip, pax=5).approve_booking()
         self.assertIn("trip", context.exception.error_dict)
         self.assertEqual(
-            context.exception.error_dict['pax'][0].message,
+            context.exception.error_dict['trip'][0].message,
             "This trip has already started."
         )
 
@@ -204,4 +204,16 @@ class BookingModelTests(TestCase):
         self.assertEqual(
             context.exception.error_dict['status'][0].message,
             "Booking status should be 'PENDING' or 'REJECTED' upon creation."
+        )
+
+    def test_booking_for_ended_trip(self):
+        self.trip.end_date = date.today().replace(day=10, month=1, year=2020)
+        with self.assertRaises(ValidationError) as context:
+            Booking.objects.create(trip=self.trip, pax=2).approve_booking()
+
+        self.assertIn('trip', context.exception.error_dict)
+
+        self.assertEqual(
+            context.exception.error_dict['trip'][0].message,
+            "This trip has already ended."
         )
