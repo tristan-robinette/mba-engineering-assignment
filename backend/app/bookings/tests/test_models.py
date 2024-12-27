@@ -133,7 +133,7 @@ class TripModelTest(TestCase):
             Booking.objects.create(trip=self.trip, pax=5).approve_booking()
         self.assertIn("trip", context.exception.error_dict)
         self.assertEqual(
-            context.exception.error_dict['pax'][0].message,
+            context.exception.error_dict['trip'][0].message,
             "This trip has already started."
         )
 
