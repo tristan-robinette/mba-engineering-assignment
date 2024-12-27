@@ -30,6 +30,10 @@ class Trip(models.Model):
         return f"{self.product.name}: {self.start_date}—{self.end_date}"
 
     @property
+    def has_started(self):
+        return self.start_date <= date.today()
+
+    @property
     def booked_pax(self):
         return sum(
             booking.pax
@@ -82,10 +86,23 @@ class Booking(models.Model):
         default="PENDING",
     )
 
+    def can_approve_booking(self):
+        has_space_for_booking = self.trip.available_pax >= self.pax
+        if not has_space_for_booking:
+            raise ValidationError({'pax': 'Not enough space remaining for this trip.'})
+        if self.trip.has_started:
+            raise ValidationError({'trip': 'This trip has already started.'})
+        if self.status == "APPROVED":
+            raise ValidationError({'status': 'This booking is already approved.'})
+        return True
+
     def approve_booking(self):
-        if self.status != "APPROVED":
+        try:
+            self.can_approve_booking()
             self.status = "APPROVED"
             self.save(update_fields=["status"])
+        except ValidationError as e:
+            raise e
         return self
 
     def clean(self):

@@ -117,6 +117,26 @@ class TripModelTest(TestCase):
         Booking.objects.create(trip=self.trip, pax=5).approve_booking()
         self.assertFalse(self.trip.is_full)
 
+    def test_no_more_space_remaining_in_trip_wont_allow_new_bookings(self):
+        with self.assertRaises(ValidationError) as context:
+            # trip max is 10 therefore 20 shouldnt be allowed.
+            Booking.objects.create(trip=self.trip, pax=20).approve_booking()
+        self.assertIn("pax", context.exception.error_dict)
+        self.assertEqual(
+            context.exception.error_dict['pax'][0].message,
+            "Not enough space remaining for this trip."
+        )
+
+    def test_trip_has_started_wont_allow_new_bookings(self):
+        self.trip.start_date = date(1990, 1, 1)
+        with self.assertRaises(ValidationError) as context:
+            Booking.objects.create(trip=self.trip, pax=5).approve_booking()
+        self.assertIn("trip", context.exception.error_dict)
+        self.assertEqual(
+            context.exception.error_dict['pax'][0].message,
+            "This trip has already started."
+        )
+
 
 class BookingModelTests(TestCase):
     def setUp(self):
