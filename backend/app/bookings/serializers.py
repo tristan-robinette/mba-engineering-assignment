@@ -1,9 +1,25 @@
 from rest_framework import serializers
 
 from .models import Booking, Product, Trip, Message
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.serializers import ValidationError
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ValidationMixin:
+    """
+    Turns DjangoValidationErrors into DRF validation errors to allow for centralizing Model
+    logic and constraints in one area.
+    """
+    def validate(self, data):
+        instance = self.Meta.model(**data)
+        try:
+            instance.full_clean()
+        except DjangoValidationError as e:
+            raise ValidationError(e.message_dict)
+        return data
+
+
+class ProductSerializer(ValidationMixin, serializers.ModelSerializer):
     company_name = serializers.ReadOnlyField(source="company.name")
 
     class Meta:
@@ -20,7 +36,7 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class TripSerializer(serializers.ModelSerializer):
+class TripSerializer(ValidationMixin, serializers.ModelSerializer):
     booked_pax = serializers.ReadOnlyField()
     available_pax = serializers.ReadOnlyField()
     has_space = serializers.ReadOnlyField()
@@ -44,7 +60,7 @@ class TripSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class MessageSerializer(serializers.ModelSerializer):
+class MessageSerializer(ValidationMixin, serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
 
     class Meta:
@@ -55,7 +71,7 @@ class MessageSerializer(serializers.ModelSerializer):
         return MessageSerializer(instance.replies, many=True, context=self.context).data
 
 
-class BookingSerializer(serializers.ModelSerializer):
+class BookingSerializer(ValidationMixin, serializers.ModelSerializer):
     email_thread = MessageSerializer(many=True, read_only=True, source='messages')
 
     class Meta:
