@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.db.models import F, Sum, Value
+from django.db.models.functions import Coalesce
+
 from .models import Trip, Booking, Product, Message
 
 
@@ -31,7 +34,7 @@ class TripAdmin(admin.ModelAdmin):
         "start_date",
         "end_date",
         "max_pax",
-        "booked_pax",
+        "booked_pax_display",
         "available_pax",
         "has_space",
         "is_full",
@@ -39,7 +42,7 @@ class TripAdmin(admin.ModelAdmin):
         "updated_at",
     )
     readonly_fields = (
-        "booked_pax",
+        "booked_pax_display",
         "available_pax",
         "has_space",
         "is_full",
@@ -54,7 +57,17 @@ class TripAdmin(admin.ModelAdmin):
     ordering = ("start_date",)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("booking_set")
+        queryset = super().get_queryset(request)
+        return queryset.annotate(
+            booked_pax_total=Coalesce(
+                Sum("booking__pax", filter=F("booking__status") == Value("APPROVED")), 0)
+        )
+
+    def booked_pax_display(self, obj):
+        return obj.booked_pax_total
+
+    booked_pax_display.admin_order_field = "booked_pax_total"
+    booked_pax_display.short_description = "Booked Pax"
 
 
 @admin.register(Booking)
