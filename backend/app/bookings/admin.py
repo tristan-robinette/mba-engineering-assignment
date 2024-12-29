@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
 from django.db.models import F, Sum, Value
 from django.db.models.functions import Coalesce
 
@@ -27,6 +28,35 @@ class BookingInline(admin.TabularInline):
     show_change_link = True
 
 
+class BookingStatusFilter(SimpleListFilter):
+    title = "Booking Status"
+    parameter_name = "booking_status"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("no_bookings", "No Bookings"),
+            ("partially_booked", "Partially Booked"),
+            ("fully_booked", "Fully Booked"),
+            ("at_least_one", "At Least One Booking"),
+        ]
+
+    def queryset(self, request, queryset):
+        queryset = queryset.annotate(
+            booked_pax_total=Coalesce(Sum("booking__pax", filter=F("booking__status") == Value("APPROVED")), 0)
+        )
+        lookup = self.value()
+
+        if lookup == "no_bookings":
+            return queryset.filter(booked_pax_total=0)
+        elif lookup == "partially_booked":
+            return queryset.filter(booked_pax_total__gt=0, booked_pax_total__lt=F("max_pax"))
+        elif lookup == "fully_booked":
+            return queryset.filter(booked_pax_total=F("max_pax"))
+        elif lookup == "at_least_one":
+            return queryset.filter(booked_pax_total__gt=0)
+        return queryset
+
+
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
     list_display = (
@@ -53,7 +83,7 @@ class TripAdmin(admin.ModelAdmin):
         BookingInline,
     ]
     search_fields = ("product_id",)
-    list_filter = ("product",)
+    list_filter = ("product", BookingStatusFilter)
     ordering = ("start_date",)
 
     def get_queryset(self, request):
